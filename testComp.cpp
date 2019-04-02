@@ -90,9 +90,7 @@ TEST_CASE("toqutree::basic prune","[weight=1][part=toqutree]"){
     img.readFromFile("images/ada.png");
 
     toqutree t1(img,9);
-    // PNG before = t1.render();
-    // before.convert();
-    // before.writeToFile("beforePrunedAda.png");
+    
     t1.prune(0.05);
     PNG result = t1.render();
 

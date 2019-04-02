@@ -88,7 +88,7 @@ double toqutree::calcEntropy(PNG* im, int k, int x, int y, stats* stats) {
 	} else if (lrf >= (int)im->width() && lrs >= (int)im->height()) { // extra on all four corners
 		int extraX = lrf-im->width();
 		int extraY = lrs-im->height();
-		lr = pair<int, int> (im->width()-1, (int)im->height()-1);
+		lr = pair<int, int> ((int)im->width()-1, (int)im->height()-1);
 		auto ul1 = pair<int, int> (0, y);
 		auto lr1 = pair<int, int> (extraX, (int)im->height()-1);
 		auto ul2 = pair<int, int> (0, 0);
@@ -106,7 +106,7 @@ double toqutree::calcEntropy(PNG* im, int k, int x, int y, stats* stats) {
 		return stats->entropy(total, area);
 	} else if (lrf >= (int)im->width()) { // extra on left
 		int extraX = lrf-im->width();
-		lr = pair<int, int> ((int)im->width()-1, lrs);
+		lr = pair<int, int> (im->width()-1, lrs);
 		auto ul1 = pair<int, int> (0, y);
 		auto lr1 = pair<int, int> (extraX, lrs);
 		vector<int> total = stats->buildHist(ul, lr);
@@ -116,7 +116,7 @@ double toqutree::calcEntropy(PNG* im, int k, int x, int y, stats* stats) {
 		}
 		int area = (int) stats->rectArea(ul, lr) + stats->rectArea(ul1, lr1);
 		return stats->entropy(total, area);
-	} else if (lrs >= (int)im->height()){															// extra on top
+	} else {															// extra on top
 		int extraY = lrs-im->height();
 		lr = pair<int, int> (lrf, (int)im->height()-1);
 		auto ul1 = pair<int, int> (x, 0);
@@ -237,7 +237,7 @@ toqutree::Node * toqutree::buildTree(PNG * im, int k) {
 	int uls = (im->height()/2)-pow(2, k-2);
 	int lrf = (im->width()/2)-1+pow(2, k-2);
 	int lrs = (im->height()/2)-1+pow(2, k-2);
-	if (k == 0) {
+	if (k <= 0) {
 		ulf = 0;
 		uls = 0;
 		lrf = 0;
@@ -272,37 +272,21 @@ toqutree::Node * toqutree::buildTree(PNG * im, int k) {
 
 	// if current node is 2x2 or bigger, recursively create and assign children
 	// if 1x1 (k==0), no need to make + assign children
-	if (k > 1) {
+	if (k >= 1) {
 		PNG* sEPNG = createSubImage(im, sp, k-1);
-		if (k-2 == 7) sEPNG->writeToFile("SEPNG.png");
 		n->SE = buildTree(sEPNG, k-1);
 
 		auto sW = pair<int, int> (sp.first+pow(2, k-1), sp.second);
 		PNG* sWPNG = createSubImage(im, sW, k-1);
-		if (k-2 == 7) sWPNG->writeToFile("SWPNG.png");
 		n->SW = buildTree(sWPNG, k-1);
 
 		auto nE = pair<int, int> (sp.first, sp.second+pow(2, k-1));
 		PNG* nEPNG = createSubImage(im, nE, k-1);
-		if (k-2 == 7) nEPNG->writeToFile("NEPNG.png");
 		n->NE = buildTree(nEPNG, k-1);
 
 		auto nW = pair<int, int> (sp.first+pow(2, k-1), sp.second+pow(2, k-1));
 		PNG* nWPNG = createSubImage(im, nW, k-1);
-		if (k-2 == 7) nWPNG->writeToFile("NWPNG.png");
 		n->NW = buildTree(nWPNG, k-1);
-	}
-
-	// if current node is 2x2, its children are leaf nodes
-	if (k == 1) {
-		auto ctr = pair<int, int>(0, 0); // each node will only have a single pixel at (0, 0)
-		// cout << im->width() << endl;
-		// cout << im->height() << endl;
-		n->SE = new Node(ctr, 0, *im->getPixel(0, 0));
-		n->SW = new Node(ctr, 0, *im->getPixel(1, 0));
-		n->NE = new Node(ctr, 0, *im->getPixel(0, 1));
-		n->NW = new Node(ctr, 0, *im->getPixel(1, 1));
-		numberOfNodes = numberOfNodes+4;
 	}
 
 	// delete im for proper memory management
@@ -471,25 +455,41 @@ PNG toqutree::render() {
 	return nPNG;
 }
 
-void toqutree::prune(Node* & node, double tol) {
-	// node greater than 2x2
+bool toqutree::withinTol(Node* & node, HSLAPixel & avg, double tol) {
+	// if node is greater than 2x2, recursive call
+	// if node is 2x2, its children are leaves
+	bool se;
+	bool sw;
+	bool ne;
+	bool nw;
 	if (node->dimension > 1) {
+		se = withinTol(node->SE, avg, tol);
+		sw = withinTol(node->SW, avg, tol);
+		ne = withinTol(node->NE, avg, tol);
+		nw = withinTol(node->NW, avg, tol);
+	} else {
+		se = node->SE->avg.dist(avg) <= tol;
+		sw = node->SW->avg.dist(avg) <= tol;
+		ne = node->NE->avg.dist(avg) <= tol;
+		nw = node->NW->avg.dist(avg) <= tol;
+	}
+	return (se && sw && ne && nw);
+}
+
+
+void toqutree::prune(Node* & node, double tol) {
+	if (withinTol(node, node->avg, tol)) {
+		// all of the nodes children and their leaves are within tolerance
+		clear(node->SE);
+		clear(node->SW);
+		clear(node->NE);
+		clear(node->NW);
+		cout << "Node pruned." << endl;
+	} else if (node->dimension > 1){
 		prune(node->SE, tol);
 		prune(node->SW, tol);
 		prune(node->NE, tol);
 		prune(node->NW, tol);
-		// cout << "One subtree pruned." << endl;
-	}
-	//base case: 2x2 node
-	if (node->dimension == 1) {
-		bool se = node->SE->avg.dist(node->avg) > tol;
-		bool sw = node->SW->avg.dist(node->avg) > tol;
-		bool ne = node->NE->avg.dist(node->avg) > tol;
-		bool nw = node->NW->avg.dist(node->avg) > tol;
-		if (se && sw && ne && nw) {
-			clear(node); // can make current node null, base case must be placed second
-		}
-		// cout << "Got to leaf." << endl;
 	}
 }
 

@@ -225,6 +225,12 @@ private:
     */
    void prune(Node* & node, double tol);
 
+   /**
+    * Helper function for prune(Node* & node, double tol) that checks a node's
+    * avg colour against all of its direct/indirect leaves
+    */
+   bool withinTol(Node* & node, HSLAPixel & avg, double tol);
+
    /* =================== end of private PA3 functions ============== */
 };
 

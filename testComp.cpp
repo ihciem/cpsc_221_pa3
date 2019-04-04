@@ -82,26 +82,6 @@ TEST_CASE("toqutree::basic copy","[weight=1][part=toqutree]"){
     toqutree t1copy(t1);
     PNG out = t1copy.render();
     out.writeToFile("resultGeo.png");
-
-    // toqutree t2(img,0);
-    // toqutree t2copy(t2);
-    // toqutree t3(img,1);
-    // toqutree t3copy(t3);
-    // toqutree t4(img,2);
-    // toqutree t4copy(t4);
-    // toqutree t5(img,3);
-    // toqutree t5copy(t5);
-
-    // PNG out2 = t2copy.render();
-    // PNG out3 = t3copy.render();
-    // PNG out4 = t4copy.render();
-    // PNG out5 = t5copy.render();
-
-    // out2.writeToFile("t2.png");
-    // out3.writeToFile("t3.png");
-    // out4.writeToFile("t4.png");
-    // out5.writeToFile("t5.png");
-
     REQUIRE(out==img);
 }
 
@@ -110,7 +90,7 @@ TEST_CASE("toqutree::basic prune","[weight=1][part=toqutree]"){
     img.readFromFile("images/ada.png");
 
     toqutree t1(img,9);
-
+    
     t1.prune(0.05);
     PNG result = t1.render();
 
